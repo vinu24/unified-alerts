@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "unified-alerts"
+version = "0.1.0"
+description = "Clean, unified alerts for Slack (Webhook & Bot) and Telegram with zero heavy dependencies."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Vinesh", email = "vinu24@users.noreply.github.com" },
+]
+keywords = [
+    "alerts",
+    "notifications",
+    "slack",
+    "telegram",
+    "webhook",
+    "bot",
+    "monitoring",
+    "django",
+    "fastapi",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Chat",
+    "Topic :: System :: Monitoring",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.optional-dependencies]
+django = ["django>=4.2"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "ruff>=0.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/vinu24/unified-alerts"
+Repository = "https://github.com/vinu24/unified-alerts"
+Issues = "https://github.com/vinu24/unified-alerts/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/unified_alerts"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
