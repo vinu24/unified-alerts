@@ -25,6 +25,10 @@ class AlertAction:
     text: str
     url: str
 
+    @property
+    def label(self) -> str:
+        return self.text
+
 
 @dataclass
 class AlertMessage:
@@ -36,9 +40,24 @@ class AlertMessage:
     fields: list[AlertField] = field(default_factory=list)
     actions: list[AlertAction] = field(default_factory=list)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    target_channel: str | None = None
+    channels_list: list[str] = field(default_factory=list)
     target_drivers: list[str] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def channels(self) -> list[str]:
+        return self.channels_list
+
+    @property
+    def target_channel(self) -> str | None:
+        return self.channels_list[0] if self.channels_list else None
+
+    @target_channel.setter
+    def target_channel(self, value: str | None) -> None:
+        if value:
+            self.channels_list = [value]
+        else:
+            self.channels_list = []
 
     def field(self, label: str, value: Any, short: bool = True) -> AlertMessage:
         """Add a single key-value field to the alert."""
@@ -52,14 +71,25 @@ class AlertMessage:
             self.field(k, v)
         return self
 
+    def fields_dict(self, fields: Mapping[str, Any]) -> AlertMessage:
+        """Add multiple key-value fields from a dictionary."""
+        return self.add_fields(fields)
+
     def action(self, text: str, url: str) -> AlertMessage:
         """Add a clickable action button or URL link."""
         self.actions.append(AlertAction(text=str(text), url=str(url)))
         return self
 
-    def channel(self, channel: str) -> AlertMessage:
-        """Target a specific channel or recipient (overriding driver default)."""
-        self.target_channel = channel
+    def channel(self, *channels: str) -> AlertMessage:
+        """Target specific channel(s) or recipient(s) (overriding driver default)."""
+        for c in channels:
+            if c not in self.channels_list:
+                self.channels_list.append(c)
+        return self
+
+    def meta(self, key: str, value: Any) -> AlertMessage:
+        """Attach custom metadata to the alert message."""
+        self.metadata[key] = value
         return self
 
     def to_driver(self, driver_name: str) -> AlertMessage:
@@ -72,11 +102,13 @@ class AlertMessage:
         self.target_drivers = list(driver_names)
         return self
 
-    def send(self) -> bool:
-        """Dispatch the alert through the global AlertManager."""
-        from unified_alerts.manager import get_default_manager
+    def send(self, manager: Any = None) -> dict[str, bool]:
+        """Dispatch the alert through the specified or default AlertManager."""
+        if manager is None:
+            from unified_alerts.manager import get_default_manager
 
-        return get_default_manager().send(self)
+            manager = get_default_manager()
+        return manager.send(self, drivers=self.target_drivers)
 
 
 class Alert:

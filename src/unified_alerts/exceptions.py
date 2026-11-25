@@ -5,7 +5,7 @@ class AlertError(Exception):
     """Base exception for all unified-alerts errors."""
 
 
-class ConfigurationError(AlertError):
+class ConfigurationError(AlertError, ValueError):
     """Raised when an alert driver or manager configuration is invalid or missing."""
 
 
@@ -18,3 +18,9 @@ class DriverDeliveryError(AlertError):
         self.message = message
         self.status_code = status_code
         self.response = response
+
+
+# Aliases for convenience
+AlertException = AlertError
+ConfigurationException = ConfigurationError
+DeliveryException = DriverDeliveryError

@@ -26,23 +26,25 @@ class SlackBotDriver(BaseDriver):
 
     def __init__(
         self,
-        bot_token: str,
-        default_channel: str,
+        bot_token: str | None = None,
+        default_channel: str = "#alerts",
         timeout: float = 10.0,
+        token: str | None = None,
         **kwargs: Any,
     ) -> None:
+        raw_token = (bot_token or token or "").strip()
         super().__init__(
-            bot_token=bot_token,
+            bot_token=raw_token,
             default_channel=default_channel,
             timeout=timeout,
             **kwargs,
         )
-        if not bot_token:
-            raise ConfigurationError("SlackBotDriver requires a non-empty 'bot_token' (xoxb-...)")
+        if not raw_token or not raw_token.startswith("xoxb-"):
+            raise ConfigurationError("SlackBotDriver requires a valid bot token starting with 'xoxb-'.")
         if not default_channel:
             raise ConfigurationError("SlackBotDriver requires a non-empty 'default_channel'")
 
-        self.bot_token = bot_token
+        self.bot_token = raw_token
         self.default_channel = default_channel.lstrip("#")
         self.timeout = float(timeout)
 
@@ -60,34 +62,25 @@ class SlackBotDriver(BaseDriver):
         payload = webhook_helper._build_payload(message)
         payload["channel"] = target_channel
 
-        body = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
+        status, data = self._http_post(
             SLACK_POST_MESSAGE_URL,
-            data=body,
-            headers={
-                "Authorization": f"Bearer {self.bot_token}",
-                "Content-Type": "application/json; charset=utf-8",
-            },
+            payload,
+            headers={"Authorization": f"Bearer {self.bot_token}"},
+            timeout=self.timeout,
         )
 
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8") or "{}")
+        if 200 <= status < 300:
+            if isinstance(data, dict):
+                if data.get("ok"):
+                    return True
+                error_code = data.get("error", "unknown_error")
+                hint = self._diagnose_slack_error(error_code, target_channel)
+                logger.error("Slack bot delivery to #%s failed: %s (%s)", target_channel, error_code, hint)
+                return False
+            return data == "ok"
 
-            if data.get("ok"):
-                return True
-
-            error_code = data.get("error", "unknown_error")
-            hint = self._diagnose_slack_error(error_code, target_channel)
-            logger.error("Slack bot delivery to #%s failed: %s (%s)", target_channel, error_code, hint)
-            return False
-
-        except urllib.error.HTTPError as exc:
-            logger.error("Slack API HTTP error %d: %s", exc.code, exc.reason)
-            return False
-        except Exception as exc:
-            logger.error("Slack Bot connection error: %s", exc)
-            return False
+        logger.error("Slack API HTTP error %d: %s", status, data)
+        return False
 
     def test_connection(self) -> dict[str, Any]:
         """Verify the bot token using Slack's auth.test API."""
